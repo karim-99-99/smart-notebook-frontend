@@ -1,0 +1,106 @@
+========================================
+ANDROID STUDIO SETUP GUIDE - WINDOWS
+========================================
+
+PROJECT LOCATION: C:\Users\DELL\SmartNotebook\mobile
+
+✅ WHAT'S INCLUDED:
+-------------------
+- Complete React Native project (with 16 KB fix applied)
+- Android folder with updated config:
+  * NDK 27.0.12077973 (16 KB page support)
+  * gradle.properties (16 KB flag enabled)
+  * Updated build.gradle files
+
+📋 SETUP STEPS:
+---------------
+
+1. INSTALL NODE MODULES (PowerShell):
+   cd C:\Users\DELL\SmartNotebook\mobile
+   npm install
+
+   ⏱️ Takes 5-10 minutes
+
+2. VERIFY PHONE CONNECTION:
+   adb devices
+   
+   Should show: NF9DSKEEIZR4CIBM    device
+
+3. OPEN IN ANDROID STUDIO:
+   - Launch Android Studio
+   - File → Open → C:\Users\DELL\SmartNotebook\mobile\android
+   - Wait for Gradle sync to complete
+   - Tools → SDK Manager → Install NDK 27.0.12077973 (if needed)
+
+4. UPDATE API CONFIG:
+   Edit: src\services\api.ts
+   
+   Line 7: const API_BASE_URL = 'http://YOUR_IP:8000';
+   
+   Get your IP:
+   ipconfig
+   (Look for "IPv4 Address" on Wi-Fi adapter)
+
+5. BUILD & RUN:
+   
+   Option A - From PowerShell:
+   cd C:\Users\DELL\SmartNotebook\mobile
+   npx react-native run-android
+   
+   Option B - From Android Studio:
+   Click green "Run" button (Shift+F10)
+
+🔧 TROUBLESHOOTING:
+-------------------
+
+"NDK not found":
+  - Android Studio → Tools → SDK Manager → SDK Tools tab
+  - Check "Show Package Details"
+  - Install NDK 27.0.12077973
+
+"Gradle sync failed":
+  - File → Invalidate Caches → Invalidate and Restart
+  - Build → Clean Project
+  - Build → Rebuild Project
+
+"Device not found":
+  - Reconnect USB
+  - adb kill-server
+  - adb devices
+
+"Metro bundler not starting":
+  - Open new PowerShell:
+    cd C:\Users\DELL\SmartNotebook\mobile
+    npx react-native start
+
+📱 TESTING:
+-----------
+1. App opens → Camera screen
+2. Capture photo
+3. Preview → "Send to OCR"
+4. Results → See extracted text
+5. "Copy Text" → Text copied!
+
+🎯 16 KB PAGE FIX APPLIED:
+--------------------------
+✅ NDK upgraded to 27.0.12077973
+✅ android.bundle.enableUncompressedNativeLibs=false
+✅ useLegacyPackaging = false
+✅ Compatible with Android 15+ (16 KB devices)
+
+🌐 BACKEND CONNECTION:
+----------------------
+Make sure backend is running:
+  cd \\wsl.localhost\Ubuntu\home\karim\smart-notebook
+  docker compose ps
+
+All services should show "Up (healthy)"
+
+Test from phone browser:
+  http://YOUR_IP:8000
+  Should show: {"message": "Welcome to Smart Notebook API"}
+
+========================================
+Created: Dec 6, 2025
+========================================
+

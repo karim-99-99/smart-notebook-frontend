@@ -1,0 +1,47 @@
+{
+  "name": "SmartNotebook",
+  "expo": {
+    "name": "Smart Notebook",
+    "slug": "smartnotebook",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kareem666.smartnotebook",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Smart Notebook needs camera access to scan your notebook pages",
+        "NSPhotoLibraryUsageDescription": "Smart Notebook needs access to save scanned images",
+        "NSPhotoLibraryAddUsageDescription": "Smart Notebook needs access to save scanned images to your photo library"
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.kareem666.smartnotebook"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7e198368-23c9-4322-a6c8-364ba60b11b2"
+      }
+    }
+  }
+}

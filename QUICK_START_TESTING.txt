@@ -1,0 +1,135 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     WEEK 6 FEATURES - QUICK START GUIDE                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📦 PROJECT: C:\Users\DELL\SmartNotebook\mobile
+
+✅ ALL FEATURES IMPLEMENTED - READY FOR TESTING!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🆕 NEW FEATURES ADDED:
+
+1. 📝 AUTO-TITLE GENERATION (EditNoteScreen.tsx)
+   ├─ Automatically generates titles when user leaves blank
+   ├─ Format: "FolderName - Date at Time"
+   └─ Example: "Math - Dec 8, 2025 at 2:30 PM"
+
+2. ✏️ FOLDER RENAME (FoldersScreen.tsx)
+   ├─ Edit button (✏️) next to each folder
+   ├─ Change name, icon, and color
+   └─ Real-time updates
+
+3. 📤 JSON EXPORT FUNCTIONS (database.ts)
+   ├─ exportNotesAsJSON() - Export all notes
+   ├─ exportFoldersAsJSON() - Export all folders
+   ├─ exportDatabaseSnapshot() - Export everything
+   └─ exportFolderWithNotes(id) - Export specific folder
+
+4. 🧪 TEST BUTTON (FoldersScreen.tsx)
+   ├─ "Test Export" button in Folders screen
+   ├─ Shows export summary
+   └─ Logs JSON to console
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 HOW TO START TESTING:
+
+TERMINAL 1 (WSL - Backend):
+┌────────────────────────────────────────────────┐
+│ cd ~/smart-notebook/backend                    │
+│ source venv/bin/activate                       │
+│ python app.py                                  │
+└────────────────────────────────────────────────┘
+
+TERMINAL 2 (Windows - Metro):
+┌────────────────────────────────────────────────┐
+│ cd C:\Users\DELL\SmartNotebook\mobile          │
+│ npm start                                      │
+└────────────────────────────────────────────────┘
+
+TERMINAL 3 (Windows - Android):
+┌────────────────────────────────────────────────┐
+│ cd C:\Users\DELL\SmartNotebook\mobile          │
+│ npm run android                                │
+└────────────────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚡ QUICK TESTS (2 minutes each):
+
+TEST 1 - Auto-Title:
+  1. Scan a page
+  2. Don't enter title (leave blank)
+  3. Save note
+  4. Check History → Should see auto-generated title ✅
+
+TEST 2 - Folder Rename:
+  1. Go to Folders
+  2. Click ✏️ on any folder
+  3. Change name, icon, color
+  4. Click Update
+  5. Verify changes saved ✅
+
+TEST 3 - JSON Export:
+  1. Go to Folders
+  2. Click "🧪 Test Export" (top right)
+  3. Check alert message
+  4. Check console logs ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 FILES CHANGED:
+
+  ✓ src/screens/EditNoteScreen.tsx      (+20 lines)
+  ✓ src/screens/FoldersScreen.tsx       (+150 lines)  
+  ✓ src/services/database.ts            (+180 lines)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION CREATED:
+
+  📄 WEEK6_COMPLETION.md      - Full feature documentation
+  📄 TEST_WEEK6.md            - Detailed testing guide
+  📄 CHANGES_SUMMARY.md       - Technical changes summary
+  📄 QUICK_START_TESTING.txt  - This file
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📤 AFTER TESTING - COPY TO WSL:
+
+Once all tests pass, copy changes to main project:
+
+┌────────────────────────────────────────────────┐
+│ cd C:\Users\DELL\SmartNotebook                 │
+│ .\sync-to-wsl.ps1                              │
+└────────────────────────────────────────────────┘
+
+Or manually:
+┌────────────────────────────────────────────────────────────────────────────┐
+│ $src = "C:\Users\DELL\SmartNotebook\mobile\src"                           │
+│ $dst = "\\wsl.localhost\Ubuntu\home\karim\smart-notebook\src"             │
+│ Copy-Item "$src\screens\EditNoteScreen.tsx" "$dst\screens\" -Force        │
+│ Copy-Item "$src\screens\FoldersScreen.tsx" "$dst\screens\" -Force         │
+│ Copy-Item "$src\services\database.ts" "$dst\services\" -Force             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ WEEK 6 STATUS: COMPLETE
+
+All features implemented and ready for testing! 🎉
+
+Next Step: Test everything, then copy to WSL for production deployment.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Need help? Check these files:
+  - WEEK6_COMPLETION.md    → Full documentation
+  - TEST_WEEK6.md          → Detailed testing steps
+  - CHANGES_SUMMARY.md     → What changed technically
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              READY TO TEST! 🚀                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
