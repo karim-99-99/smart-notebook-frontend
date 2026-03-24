@@ -16,8 +16,7 @@ import type {RouteProp} from '@react-navigation/native';
 import type {RootStackParamList} from '../navigation/types';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {colors} from '../theme/colors';
-import RNFS from 'react-native-fs';
-import {exportToWord} from '../services/api';
+import {exportToWord, getExportPath} from '../services/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Result'>;
 type ResultRouteProp = RouteProp<RootStackParamList, 'Result'>;
@@ -43,7 +42,7 @@ export const ResultScreen = () => {
       // Generate filename with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
       const filename = `smart_notebook_${timestamp}.docx`;
-      const downloadPath = `${RNFS.DownloadDirectoryPath}/${filename}`;
+      const downloadPath = getExportPath(filename);
 
       // Export and download
       const result = await exportToWord(
@@ -53,25 +52,23 @@ export const ResultScreen = () => {
       );
 
       if (result.success && result.filePath) {
+        const buttons: Array<{text: string; onPress?: () => void}> = [{text: 'OK'}];
+        if (Platform.OS === 'android') {
+          buttons.push({
+            text: 'Open Folder',
+            onPress: () => {
+              Linking.openURL('content://com.android.externalstorage.documents/document/primary:Download').catch(
+                () => {
+                  Alert.alert('Info', 'Please check your Downloads folder');
+                },
+              );
+            },
+          });
+        }
         Alert.alert(
           '✅ Export Successful',
           `Word document saved to:\nDownloads/${filename}`,
-          [
-            {text: 'OK'},
-            {
-              text: 'Open Folder',
-              onPress: () => {
-                // Try to open the Downloads folder
-                if (Platform.OS === 'android') {
-                  Linking.openURL('content://com.android.externalstorage.documents/document/primary:Download').catch(
-                    () => {
-                      Alert.alert('Info', 'Please check your Downloads folder');
-                    },
-                  );
-                }
-              },
-            },
-          ],
+          buttons,
         );
       } else {
         Alert.alert('❌ Export Failed', result.error || 'Could not export document');
@@ -272,4 +269,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

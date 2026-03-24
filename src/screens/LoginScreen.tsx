@@ -20,19 +20,18 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {signIn, signUp, signOut, testSupabaseConnection} from '../lib/supabase';
-import {loginToBackend, registerBackend, syncBackendPassword, testBackendReachability, clearAuthToken} from '../services/api';
+import {loginBackend, registerBackend, syncBackendPassword, testBackendReachability, setBackendAuthToken, getBackendBaseUrl} from '../services/api';
 import {trackEvent, trackError} from '../services/analytics';
 import {colors} from '../theme/colors';
 import {borders} from '../theme/borders';
 import {StyledMessageModal} from '../components/StyledMessageModal';
+import {initDatabase} from '../services/database';
 
 const logoImage = require('../assets/logo.png');
 
 export const LoginScreen = () => {
   const navigation = useNavigation();
   const {width} = useWindowDimensions();
-  const emailInputRef = useRef<TextInput>(null);
-  const passwordInputRef = useRef<TextInput>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
@@ -75,6 +74,7 @@ export const LoginScreen = () => {
       if (isLogin) {
         const {error} = await signIn(email, password);
         if (error) {
+          trackError('app', error.message || 'Login failed', undefined, {email: email.slice(0, 3) + '***'});
           let errorMessage = error.message || 'Login failed';
           if (errorMessage.toLowerCase().includes('network') ||
               errorMessage.toLowerCase().includes('connection')) {
@@ -84,35 +84,32 @@ export const LoginScreen = () => {
         } else {
           trackEvent('login', {});
           loginSuccessHandled.current = false;
-          // Log in to backend so "Send to OCR" works. Same account in both. If only in Supabase, register then retry. If already registered but password out of sync, sync then retry.
-          let backendResult = await loginToBackend(email, password);
-          if (!backendResult.ok) {
+          // Log in to backend so "Send to OCR" and other API calls work. Same account in both.
+          let backendResult = await loginBackend(email, password);
+          if (backendResult.error) {
             const registerResult = await registerBackend(email, password);
             if (registerResult.alreadyRegistered) {
               await syncBackendPassword(email, password);
             }
-            backendResult = await loginToBackend(email, password);
+            backendResult = await loginBackend(email, password);
           }
-          if (!backendResult.ok) {
-            const errMsg = backendResult.error ?? 'Unknown error';
-            console.warn('Backend login failed:', errMsg);
-            Alert.alert(
-              'Backend login failed',
-              errMsg + '\n\nSend to OCR will not work. Use "Re-enter password" when Send to OCR fails, or Sign out then Sign in again. Ensure backend and ngrok are running.',
-              [{ text: 'OK' }],
-            );
+          const backendOk = !backendResult.error;
+          if (!backendOk) {
+            console.warn('Backend login failed (OCR may ask to log in again):', backendResult.error);
           }
+          // Fire-and-forget: pre-load the PaddleOCR model while the user reads the success message.
+          // This cuts the cold-start delay on the first "Send to OCR" of the session.
+          fetch(`${getBackendBaseUrl()}/api/notes/ocr/warm`, {method: 'POST'}).catch(() => {});
           setSuccessModal({
             visible: true,
             title: 'Success',
-            message: backendResult.ok
+            message: backendOk
               ? 'Logged in successfully!'
-              : 'Logged in, but backend token failed (see alert). Use Sign out then Sign in again to fix Send to OCR.',
+              : 'Logged in! If "Send to OCR" says to log in again, log out and log in once more, and ensure your device can reach the backend.',
             isLoginSuccess: true,
             onOK: async () => {
               setSuccessModal(s => ({...s, visible: false}));
               try {
-                const {initDatabase} = await import('../services/database');
                 await initDatabase();
               } catch (dbError) {
                 console.error('Database init error:', dbError);
@@ -127,6 +124,7 @@ export const LoginScreen = () => {
       } else {
         const {error} = await signUp(email, password);
         if (error) {
+          trackError('app', error.message || 'Sign up failed', undefined, {});
           let errorMessage = error.message || 'Sign up failed';
           if (errorMessage.toLowerCase().includes('network') ||
               errorMessage.toLowerCase().includes('connection')) {
@@ -134,6 +132,7 @@ export const LoginScreen = () => {
           }
           Alert.alert('Sign Up Failed', errorMessage);
         } else {
+          trackEvent('signup', {});
           // Save same account in backend so OCR works (no need to add from PC/code)
           let registerResult = await registerBackend(email, password);
           if (registerResult.error && !registerResult.alreadyRegistered) {
@@ -141,7 +140,7 @@ export const LoginScreen = () => {
             registerResult = await registerBackend(email, password);
           }
           const backendSaved = !registerResult.error || registerResult.alreadyRegistered;
-          await loginToBackend(email, password);
+          await loginBackend(email, password);
           setSuccessModal({
             visible: true,
             title: 'Success',
@@ -182,6 +181,7 @@ export const LoginScreen = () => {
     }
   };
 
+  /** Test if the app can reach the backend (for OCR). Shows URL and result. */
   const handleTestBackend = async () => {
     setLoading(true);
     try {
@@ -238,13 +238,9 @@ export const LoginScreen = () => {
             <View style={styles.form}>
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Email Address</Text>
-                <TouchableOpacity
-                  activeOpacity={1}
-                  onPress={() => emailInputRef.current?.focus()}
-                  style={[styles.inputWrapper, emailFocused && styles.inputWrapperFocused]}>
+                <View style={[styles.inputWrapper, emailFocused && styles.inputWrapperFocused]}>
                   <Text style={styles.inputIcon}>✉️</Text>
                   <TextInput
-                    ref={emailInputRef}
                     style={styles.input}
                     placeholder="Enter your email"
                     placeholderTextColor={colors.textMuted}
@@ -253,24 +249,17 @@ export const LoginScreen = () => {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    showSoftInputOnFocus
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordInputRef.current?.focus()}
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
                   />
-                </TouchableOpacity>
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Password</Text>
-                <TouchableOpacity
-                  activeOpacity={1}
-                  onPress={() => passwordInputRef.current?.focus()}
-                  style={[styles.inputWrapper, passwordFocused && styles.inputWrapperFocused]}>
+                <View style={[styles.inputWrapper, passwordFocused && styles.inputWrapperFocused]}>
                   <Text style={styles.inputIcon}>🔒</Text>
                   <TextInput
-                    ref={passwordInputRef}
                     style={styles.input}
                     placeholder="Enter your password"
                     placeholderTextColor={colors.textMuted}
@@ -278,12 +267,10 @@ export const LoginScreen = () => {
                     onChangeText={setPassword}
                     secureTextEntry
                     autoCapitalize="none"
-                    showSoftInputOnFocus
-                    returnKeyType="done"
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
                   />
-                </TouchableOpacity>
+                </View>
               </View>
 
               <TouchableOpacity
@@ -332,7 +319,7 @@ export const LoginScreen = () => {
                 style={[styles.testButton, { marginTop: 14 }]}
                 onPress={async () => {
                   await signOut();
-                  await clearAuthToken();
+                  await setBackendAuthToken(null);
                   Alert.alert('Signed out', 'Sign in again to refresh your backend token for Send to OCR.');
                 }}
                 disabled={loading}

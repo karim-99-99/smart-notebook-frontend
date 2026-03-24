@@ -16,9 +16,11 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import type {RootStackParamList} from '../navigation/types';
-import {uploadImageForOCR, loginToBackend} from '../services/api';
+import RNFS from 'react-native-fs';
+import {uploadImageForOCR, loginBackend} from '../services/api';
 import {getCurrentUser} from '../lib/supabase';
 import type {NotebookQRData} from '../utils/qrCodeParser';
+import {trackError, trackEvent, trackAccuracy} from '../services/analytics';
 import {colors} from '../theme/colors';
 
 type NavigationProp = NativeStackNavigationProp<
@@ -32,9 +34,18 @@ export const PreviewScreen = () => {
   const route = useRoute<PreviewRouteProp>();
   const {photoPath, qrData} = route.params;
   const [isUploading, setIsUploading] = useState(false);
+  const [ocrStep, setOcrStep] = useState('');
+  const [imageError, setImageError] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [backendPassword, setBackendPassword] = useState('');
   const [backendLoginEmail, setBackendLoginEmail] = useState<string | null>(null);
+
+  const goBackToScan = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{name: 'Scan'}],
+    });
+  };
 
   const handleRetake = () => {
     navigation.replace('Scan');
@@ -44,9 +55,17 @@ export const PreviewScreen = () => {
     if (isUploading) return;
 
     setIsUploading(true);
+    setOcrStep('Uploading image...');
     console.log('🚀 Starting OCR process...');
+
+    // Progressive step labels so the user sees movement, not a frozen spinner.
+    // Timings are approximate; the actual result clears the label when ready.
+    const stepTimers = [
+      setTimeout(() => setOcrStep('Detecting text regions...'), 4000),
+      setTimeout(() => setOcrStep('Reading Arabic / English text...'), 10000),
+      setTimeout(() => setOcrStep('Almost there...'), 25000),
+    ];
     // #region agent log
-    const RNFS = require('react-native-fs');
     const DEBUG_LOG_PATH = `${RNFS.DocumentDirectoryPath}/debug.log`;
     const logLine = JSON.stringify({location:'PreviewScreen.tsx:33',message:'handleSendToOCR entry',data:{photoPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'}) + '\n';
     RNFS.appendFile(DEBUG_LOG_PATH, logLine, 'utf8').catch(() => {});
@@ -62,7 +81,9 @@ export const PreviewScreen = () => {
 
       if (result.success && result.data) {
         console.log('✅ OCR successful:', result.data);
-        
+        trackEvent('scan', {has_lines: (result.data.lines?.length ?? 0) > 0});
+        const conf = result.data.average_confidence ?? (result.data.lines?.length ? result.data.lines.reduce((s: number, l: { confidence?: number }) => s + (l.confidence ?? 0), 0) / result.data.lines.length : 0);
+        if (typeof conf === 'number' && !Number.isNaN(conf)) trackAccuracy('ocr_confidence', conf, null, {line_count: result.data.line_count ?? 0});
         // Navigate to edit screen with image and OCR result
         // User can edit text before saving
         navigation.navigate('EditNote', {
@@ -72,6 +93,7 @@ export const PreviewScreen = () => {
         });
       } else {
         console.error('❌ OCR failed:', result.error);
+        trackError('ocr', result.error || 'OCR failed', undefined, {});
         // #region agent log
         const logLine3 = JSON.stringify({location:'PreviewScreen.tsx:53',message:'OCR failed - showing alert',data:{error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'}) + '\n';
         RNFS.appendFile(DEBUG_LOG_PATH, logLine3, 'utf8').catch(() => {});
@@ -94,12 +116,14 @@ export const PreviewScreen = () => {
           [
             ...(isAuthError ? [{text: 'Re-enter password', onPress: openPasswordModal}, {text: 'Go to Login', onPress: () => navigation.navigate('Login' as never)}] : []),
             {text: 'Retry', onPress: handleSendToOCR},
+            {text: 'Back to scan', onPress: goBackToScan},
             {text: 'Cancel', style: 'cancel'},
           ],
         );
       }
     } catch (error) {
       console.error('❌ Upload error:', error);
+      trackError('ocr', error instanceof Error ? error.message : String(error), undefined, {});
       // #region agent log
       const logLine4 = JSON.stringify({location:'PreviewScreen.tsx:63',message:'Catch block in handleSendToOCR',data:{errorType:error?.constructor?.name,errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'}) + '\n';
       RNFS.appendFile(DEBUG_LOG_PATH, logLine4, 'utf8').catch(() => {});
@@ -108,11 +132,13 @@ export const PreviewScreen = () => {
         'Something went wrong',
         'Check connection to backend or log in (log out and log in again if needed). Return to the scan screen and try again.',
         [
-          {text: 'Go to Login', onPress: () => navigation.navigate('Login' as never)},
+          {text: 'Back to scan', onPress: goBackToScan},
           {text: 'OK'},
         ],
       );
     } finally {
+      stepTimers.forEach(t => clearTimeout(t));
+      setOcrStep('');
       setIsUploading(false);
     }
   };
@@ -123,13 +149,32 @@ export const PreviewScreen = () => {
       return;
     }
     setShowPasswordModal(false);
-    const result = await loginToBackend(backendLoginEmail, backendPassword.trim());
-    if (!result.ok) {
-      Alert.alert('Backend login failed', result.error ?? 'Unknown error');
+    const result = await loginBackend(backendLoginEmail, backendPassword.trim());
+    if (result.error) {
+      Alert.alert('Backend login failed', result.error);
       return;
     }
     handleSendToOCR();
   };
+
+  // If photo is missing or failed to load (e.g. after app reload), show message and back to scan
+  if (!photoPath || !photoPath.trim() || imageError) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorCard}>
+          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorMessage}>
+            {imageError
+              ? 'The photo could not be displayed. Return to the scan screen and try again.'
+              : 'The photo could not be loaded. Return to the scan screen and try again.'}
+          </Text>
+          <TouchableOpacity style={styles.errorButton} onPress={goBackToScan}>
+            <Text style={styles.buttonText}>Back to scan</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -165,6 +210,7 @@ export const PreviewScreen = () => {
           source={{uri: photoPath}}
           style={styles.image}
           resizeMode="contain"
+          onError={() => setImageError(true)}
         />
       </View>
 
@@ -188,7 +234,7 @@ export const PreviewScreen = () => {
           {isUploading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color="#FFF" />
-              <Text style={styles.buttonText}>Processing...</Text>
+              <Text style={styles.buttonText}>{ocrStep || 'Processing...'}</Text>
             </View>
           ) : (
             <Text style={styles.buttonText}>📤 Send to OCR</Text>
@@ -203,6 +249,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  errorCard: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#ccc',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  errorButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.teal,
   },
   modalOverlay: {
     flex: 1,

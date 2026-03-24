@@ -22,7 +22,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import {saveNote, updateNote, getAllFolders, type Folder, getNoteById, updateNoteSyncStatus} from '../services/database';
-import {exportToWord, exportToPDF} from '../services/api';
+import {exportToWord, exportToPDF, getExportPath} from '../services/api';
 import {syncSingleNote} from '../services/supabaseSync';
 import {isAuthenticated} from '../lib/supabase';
 import {calculateEditDistance} from '../utils/editDistance';
@@ -384,7 +384,7 @@ export const EditNoteScreen = () => {
         .replace(/[:.]/g, '-')
         .substring(0, 19);
       const filename = `smart_notebook_${timestamp}.docx`;
-      const downloadPath = `${RNFS.DownloadDirectoryPath}/${filename}`;
+      const downloadPath = getExportPath(filename);
 
       const result = await exportToWord(
         editedText,

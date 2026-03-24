@@ -7,7 +7,7 @@
  * - Background sync: Upload to Supabase when online
  * - Download sync: Pull from Supabase on login/new device
  */
-import {supabase, getCurrentUser} from '../lib/supabase';
+import {getSupabase, getCurrentUser} from '../lib/supabase';
 import {Folder, Note} from './database';
 import RNFS from 'react-native-fs';
 
@@ -31,6 +31,8 @@ export const uploadImageToSupabase = async (
     if (!user) {
       return {success: false, error: 'User not authenticated'};
     }
+    const supabase = getSupabase();
+    if (!supabase) return {success: false, error: 'Supabase not initialized'};
 
     // Read image file as base64
     const imageData = await RNFS.readFile(imageUri, 'base64');
@@ -90,6 +92,15 @@ export const syncFoldersToSupabase = async (
         syncedCount: 0,
         failedCount: folders.length,
         message: 'User not authenticated',
+      };
+    }
+    const supabase = getSupabase();
+    if (!supabase) {
+      return {
+        success: false,
+        syncedCount: 0,
+        failedCount: folders.length,
+        message: 'Supabase not initialized',
       };
     }
 
@@ -176,6 +187,15 @@ export const syncNotesToSupabase = async (
         syncedCount: 0,
         failedCount: notes.length,
         message: 'User not authenticated',
+      };
+    }
+    const supabase = getSupabase();
+    if (!supabase) {
+      return {
+        success: false,
+        syncedCount: 0,
+        failedCount: notes.length,
+        message: 'Supabase not initialized',
       };
     }
 
@@ -284,13 +304,15 @@ export const syncNotesToSupabase = async (
       };
     }
 
-    console.log(`📤 Attempting to insert ${notesData.length} notes...`);
+    console.log(`📤 Attempting to upsert ${notesData.length} notes...`);
     console.log('📝 Sample note data:', JSON.stringify(notesData[0], null, 2));
 
-    // Insert notes (use insert instead of upsert for now to avoid conflict issues)
+    // Upsert so re-syncing an edited note updates rather than duplicates it.
+    // Requires a unique constraint on (user_id, timestamp) in Supabase:
+    //   ALTER TABLE notes ADD CONSTRAINT notes_user_timestamp_unique UNIQUE (user_id, timestamp);
     const {data, error} = await supabase
       .from('notes')
-      .insert(notesData)
+      .upsert(notesData, {onConflict: 'user_id,timestamp', ignoreDuplicates: false})
       .select();
 
     if (error) {
@@ -345,6 +367,10 @@ export const downloadSyncFromSupabase = async (): Promise<{
     const user = await getCurrentUser();
     if (!user) {
       return {success: false, error: 'User not authenticated'};
+    }
+    const supabase = getSupabase();
+    if (!supabase) {
+      return {success: false, error: 'Supabase not initialized'};
     }
 
     // Download folders
@@ -672,4 +698,3 @@ export const performFullSync = async (
     };
   }
 };
-
