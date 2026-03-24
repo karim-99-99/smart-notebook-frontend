@@ -3,19 +3,20 @@
 buildscript {
     // CRITICAL: Set minSdkVersion FIRST before anything else
     // This ensures CMake reads the correct value
-    project.ext.set("minSdkVersion", 23)
-    System.setProperty("ANDROID_MIN_SDK_VERSION", "23")
+    project.ext.set("minSdkVersion", 24)
+    System.setProperty("ANDROID_MIN_SDK_VERSION", "24")
     
     ext {
-        buildToolsVersion = "34.0.0"
-        minSdkVersion = 23  // Must be 23 for React Native 0.74 and react-native-screens
-        compileSdkVersion = 34
-        targetSdkVersion = 34
-        // NDK version - will auto-download if not found
-        // If you get NDK errors, install via Android Studio SDK Manager
-        ndkVersion = "26.1.10909125"
-        kotlinVersion = "1.9.22"
-        kotlin_version = "1.9.22"  // For react-native-camera-kit
+        // compileSdk 35+: required by androidx.camera 1.5.x (expo-camera / ML Kit vision)
+        buildToolsVersion = "35.0.0"
+        minSdkVersion = 24  // RN 0.83+ requires 24 (react-android AAR manifest)
+        compileSdkVersion = 35
+        targetSdkVersion = 35
+        // RN 0.83+ uses std::format in C++; requires NDK r27+ libc++ (r26 fails on Windows/ARM builds)
+        ndkVersion = "27.2.12479018"
+        // 2.1.20+ required for expo-root-project / KSP (1.9.x is unsupported)
+        kotlinVersion = "2.1.20"
+        kotlin_version = "2.1.20"
     }
     repositories {
         google()
@@ -24,7 +25,7 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle:8.3.0")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     }
 }
 
@@ -42,6 +43,14 @@ allprojects {
         mavenCentral()
     }
     
+    // Force compatible androidx.core version (1.17.0 requires AGP 8.9.1+, downgrade to 1.13.0)
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.core:core:1.13.0'
+            force 'androidx.core:core-ktx:1.13.0'
+        }
+    }
+    
     // Configure Kotlin compiler globally to suppress internal API errors
     afterEvaluate { project ->
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
@@ -51,54 +60,47 @@ allprojects {
                     "-Xopt-in=kotlin.RequiresOptIn",
                     "-Xsuppress-version-warnings",
                     "-Xallow-unstable-dependencies",
-                    "-Xskip-prerelease-check",
-                    "-Xjvm-default=all"
+                    "-Xskip-prerelease-check"
+                    // NOTE: Do NOT add -Xjvm-default=all here — it removes $DefaultImpls
+                    // from Kotlin interfaces, which crashes expo-file-system at runtime.
                 ]
                 allWarningsAsErrors = false
             }
         }
         
-        // Ensure all Android projects use minSdkVersion 23 (required for React Native 0.74)
+        // Align all Android subprojects with minSdk 24 (RN 0.83+)
         if (project.hasProperty('android')) {
             project.android {
-                // Force minSdkVersion 23 for ALL projects including app
-                // This ensures CMake reads the correct value
-                // IMPORTANT: Set this BEFORE any other configuration to ensure it's applied first
                 afterEvaluate {
                     defaultConfig {
-                        minSdkVersion 23  // Force 23 for React Native 0.74 compatibility
+                        minSdkVersion 24
                     }
                 }
                 defaultConfig {
-                    minSdkVersion 23  // Force 23 for React Native 0.74 compatibility
+                    minSdkVersion 24
                 }
-                // For react-native-screens CMake configuration - ensure minSdkVersion 23
                 if (project.name == 'react-native-screens') {
                     afterEvaluate {
                         defaultConfig {
-                            minSdkVersion 23  // Explicitly override to 23
-                            // CMake needs ANDROID_PLATFORM to match minSdkVersion
-                            // Platform 23 corresponds to Android 6.0 (API 23)
+                            minSdkVersion 24
                             externalNativeBuild {
                                 cmake {
                                     arguments "-DANDROID_STL=c++_shared",
                                             "-DRNS_NEW_ARCH_ENABLED=${project.hasProperty('newArchEnabled') ? project.newArchEnabled : 'false'}",
-                                            "-DANDROID_PLATFORM=android-23",  // Force platform 23
-                                            "-DANDROID_MIN_SDK_VERSION=23"  // Explicitly set for CMake
+                                            "-DANDROID_PLATFORM=android-24",
+                                            "-DANDROID_MIN_SDK_VERSION=24"
                                 }
                             }
                         }
                     }
                     defaultConfig {
-                        minSdkVersion 23  // Explicitly override to 23
-                        // CMake needs ANDROID_PLATFORM to match minSdkVersion
-                        // Platform 23 corresponds to Android 6.0 (API 23)
+                        minSdkVersion 24
                         externalNativeBuild {
                             cmake {
                                 arguments "-DANDROID_STL=c++_shared",
                                         "-DRNS_NEW_ARCH_ENABLED=${project.hasProperty('newArchEnabled') ? project.newArchEnabled : 'false'}",
-                                        "-DANDROID_PLATFORM=android-23",  // Force platform 23
-                                        "-DANDROID_MIN_SDK_VERSION=23"  // Explicitly set for CMake
+                                        "-DANDROID_PLATFORM=android-24",
+                                        "-DANDROID_MIN_SDK_VERSION=24"
                             }
                         }
                     }
@@ -117,3 +119,5 @@ allprojects {
     }
 }
 
+apply plugin: "expo-root-project"
+apply plugin: "com.facebook.react.rootproject"

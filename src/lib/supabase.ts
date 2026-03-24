@@ -41,6 +41,8 @@ try {
 
 export {supabase};
 
+export const getSupabase = () => supabase;
+
 /**
  * Get current authenticated user
  */

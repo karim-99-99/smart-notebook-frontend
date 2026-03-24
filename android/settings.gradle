@@ -1,5 +1,45 @@
-rootProject.name = 'SmartNotebook'
-apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesSettingsGradle(settings)
-include ':app'
-includeBuild('../node_modules/@react-native/gradle-plugin')
+pluginManagement {
+    def reactNativeGradlePlugin = new File(
+        providers.exec {
+            workingDir(rootDir)
+            commandLine("node", "--print", "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })")
+        }.standardOutput.asText.get().trim()
+    ).getParentFile().absolutePath
+    includeBuild(reactNativeGradlePlugin)
 
+    def expoPluginsPath = new File(
+        providers.exec {
+            workingDir(rootDir)
+            commandLine("node", "--print", "require.resolve('expo-modules-autolinking/package.json', { paths: [require.resolve('expo/package.json')] })")
+        }.standardOutput.asText.get().trim(),
+        "../android/expo-gradle-plugin"
+    ).absolutePath
+    includeBuild(expoPluginsPath)
+}
+
+plugins {
+    id("com.facebook.react.settings")
+    id("expo-autolinking-settings")
+}
+
+// Expo's rnConfig alone can generate PackageList entries without adding community libs to Gradle → compile errors.
+// Use RN CLI config for native includes when EXPO_USE_COMMUNITY_AUTOLINKING=1 (gradle.properties or env).
+def useCommunityAutolinking =
+    (providers.gradleProperty("EXPO_USE_COMMUNITY_AUTOLINKING").getOrElse("0") == "1") ||
+        (System.getenv("EXPO_USE_COMMUNITY_AUTOLINKING") == "1")
+
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+    if (useCommunityAutolinking) {
+        ex.autolinkLibrariesFromCommand()
+    } else {
+        ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)
+    }
+}
+expoAutolinking.useExpoModules()
+
+rootProject.name = "SmartNotebook"
+
+// Optional: expoAutolinking.useExpoVersionCatalog() — requires react-native/gradle/libs.versions.toml (some RN layouts omit it).
+
+include(":app")
+includeBuild(expoAutolinking.reactNativeGradlePlugin)

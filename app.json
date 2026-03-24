@@ -1,5 +1,4 @@
 {
-  "name": "SmartNotebook",
   "expo": {
     "name": "Smart Notebook",
     "slug": "smartnotebook",
@@ -24,8 +23,8 @@
         "NSPhotoLibraryUsageDescription": "Smart Notebook needs access to save scanned images",
         "NSPhotoLibraryAddUsageDescription": "Smart Notebook needs access to save scanned images to your photo library"
       },
-      "config": {
-        "usesNonExemptEncryption": false
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "android": {
@@ -33,15 +32,20 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.kareem666.smartnotebook"
+      "package": "com.kareem666.smartnotebook",
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "7e198368-23c9-4322-a6c8-364ba60b11b2"
+        "projectId": "58e6d06d-73f7-4fb9-9b89-db773cece8cb"
       }
+    },
+    "owner": "kareem999",
+    "updates": {
+      "url": "https://u.expo.dev/58e6d06d-73f7-4fb9-9b89-db773cece8cb"
     }
   }
 }

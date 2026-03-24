@@ -2,7 +2,7 @@
 # Run this script from anywhere - it will use the correct folder and kill wrong Metro.
 
 $metroDir = "C:\Users\DELL\SmartNotebook\mobile"
-$port = 8081
+$port = 8082
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Start Metro from CORRECT folder" -ForegroundColor Cyan
@@ -10,7 +10,7 @@ Write-Host "  $metroDir" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Kill any process already using port 8081 (wrong Metro)
+# Kill any process already using Metro port (wrong instance)
 try {
     $found = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 } catch {
@@ -37,4 +37,4 @@ if (-not (Test-Path "package.json")) {
 Write-Host "Starting Metro from: $metroDir" -ForegroundColor Green
 Write-Host "Keep this window open. Run the app in another terminal." -ForegroundColor Gray
 Write-Host ""
-npx react-native start --reset-cache
+npm run start

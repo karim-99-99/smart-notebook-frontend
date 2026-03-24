@@ -7,10 +7,23 @@ react {
     root = file("../../")
     reactNativeDir = file("../../node_modules/react-native")
     codegenDir = file("../../node_modules/@react-native/codegen")
+    // Link all autolinked native modules as Gradle dependencies of :app
+    autolinkLibrariesWithApp()
 }
 
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
+
+// Metro host baked into debug APK. Order: env (Wi‑Fi / same LAN) > gradle.properties > localhost
+// On Wi‑Fi, localhost on the *phone* is wrong — use your PC IPv4 (npm run android:lan sets env).
+def rawPackagerHost = System.getenv("REACT_NATIVE_PACKAGER_HOSTNAME")
+def envPackagerHost = (rawPackagerHost != null && !rawPackagerHost.trim().isEmpty()) ? rawPackagerHost.trim() : null
+def reactNativePackagerHostname = envPackagerHost != null
+        ? envPackagerHost
+        : (project.findProperty("REACT_NATIVE_PACKAGER_HOSTNAME") ?: "localhost").toString()
+// Must match Metro --port (default 8082 in this repo — avoids Windows svchost on 8081).
+def reactNativeDevServerPort =
+        (project.findProperty("REACT_NATIVE_DEV_SERVER_PORT") ?: "8082").toString()
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -20,19 +33,18 @@ android {
 
     defaultConfig {
         applicationId "com.smartnotebook"
-        minSdkVersion 23  // Must be 23 for React Native 0.74 - hardcoded to ensure CMake compatibility
+        minSdkVersion 24  // RN 0.83+ react-android requires minSdk 24
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        // Build for 32-bit ARM only - most ARM64 devices support it
+        // arm64-v8a: real devices; armeabi-v7a: older 32-bit
         ndk {
-            abiFilters 'armeabi-v7a'
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
         }
-        // Use localhost for USB debugging (adb reverse). For WiFi, set your PC's IP in gradle.properties
-        buildConfigField "String", "PACKAGER_HOSTNAME", "\"localhost\""
+        buildConfigField "String", "PACKAGER_HOSTNAME", "\"${reactNativePackagerHostname}\""
     }
     
-    // Ensure all build variants use minSdkVersion 23
+    // Ensure all build variants use minSdkVersion 24
     buildTypes.all {
         // This ensures consistency across all build types
     }
@@ -46,8 +58,8 @@ android {
 
     buildTypes {
         debug {
-            // Use localhost for USB (adb reverse). For WiFi debugging, set REACT_NATIVE_PACKAGER_HOSTNAME in gradle.properties
-            resValue "string", "react_native_packager_hostname", "localhost"
+            resValue "string", "react_native_packager_hostname", reactNativePackagerHostname
+            resValue "integer", "react_native_dev_server_port", reactNativeDevServerPort
         }
         release {
             // Use default debug signing for now
@@ -55,9 +67,21 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    buildFeatures {
+        // React Native doesn't use viewBinding
+    }
 }
 
 dependencies {
+    // Expo Kotlin entrypoints (MainActivity/MainApplication) use expo.modules.* — those classes are in :expo
+    implementation(project(":expo"))
     implementation("com.facebook.react:react-android")
     
     if (hermesEnabled.toBoolean()) {
@@ -67,5 +91,5 @@ dependencies {
     }
 }
 
-apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
-
+// Autolinking: use com.facebook.react.settings + Expo in settings.gradle (RN 0.76+).
+// native_modules.gradle was removed from @react-native-community/cli-platform-android.

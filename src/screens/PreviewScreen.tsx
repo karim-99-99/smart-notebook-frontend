@@ -7,12 +7,17 @@ import {
   Text,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import type {RootStackParamList} from '../navigation/types';
-import {uploadImageForOCR} from '../services/api';
+import {uploadImageForOCR, loginToBackend} from '../services/api';
+import {getCurrentUser} from '../lib/supabase';
 import type {NotebookQRData} from '../utils/qrCodeParser';
 import {colors} from '../theme/colors';
 
@@ -27,10 +32,12 @@ export const PreviewScreen = () => {
   const route = useRoute<PreviewRouteProp>();
   const {photoPath, qrData} = route.params;
   const [isUploading, setIsUploading] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [backendPassword, setBackendPassword] = useState('');
+  const [backendLoginEmail, setBackendLoginEmail] = useState<string | null>(null);
 
   const handleRetake = () => {
-    // Navigate back to Scan screen explicitly
-    navigation.navigate('Scan');
+    navigation.replace('Scan');
   };
 
   const handleSendToOCR = async () => {
@@ -69,10 +76,23 @@ export const PreviewScreen = () => {
         const logLine3 = JSON.stringify({location:'PreviewScreen.tsx:53',message:'OCR failed - showing alert',data:{error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'}) + '\n';
         RNFS.appendFile(DEBUG_LOG_PATH, logLine3, 'utf8').catch(() => {});
         // #endregion
+        const hint = 'Check connection to backend or log in (log out and log in again if needed).';
+        const isAuthError = (result.error || '').toLowerCase().includes('logged in to backend') || (result.error || '').toLowerCase().includes('not logged in');
+        const openPasswordModal = async () => {
+          const user = await getCurrentUser();
+          if (!user?.email) {
+            Alert.alert('Not signed in', 'Go to Login and sign in first.');
+            return;
+          }
+          setBackendLoginEmail(user.email);
+          setBackendPassword('');
+          setShowPasswordModal(true);
+        };
         Alert.alert(
           'Upload Failed',
-          result.error || 'Could not process image. Please try again.',
+          [result.error || 'Could not process image. Please try again.', hint].join('\n\n'),
           [
+            ...(isAuthError ? [{text: 'Re-enter password', onPress: openPasswordModal}, {text: 'Go to Login', onPress: () => navigation.navigate('Login' as never)}] : []),
             {text: 'Retry', onPress: handleSendToOCR},
             {text: 'Cancel', style: 'cancel'},
           ],
@@ -85,17 +105,60 @@ export const PreviewScreen = () => {
       RNFS.appendFile(DEBUG_LOG_PATH, logLine4, 'utf8').catch(() => {});
       // #endregion
       Alert.alert(
-        'Error',
-        'An unexpected error occurred. Check your network connection.',
-        [{text: 'OK'}],
+        'Something went wrong',
+        'Check connection to backend or log in (log out and log in again if needed). Return to the scan screen and try again.',
+        [
+          {text: 'Go to Login', onPress: () => navigation.navigate('Login' as never)},
+          {text: 'OK'},
+        ],
       );
     } finally {
       setIsUploading(false);
     }
   };
 
+  const handleBackendLoginFromModal = async () => {
+    if (!backendLoginEmail || !backendPassword.trim()) {
+      Alert.alert('Enter your password', 'Password is required to log in to the backend.');
+      return;
+    }
+    setShowPasswordModal(false);
+    const result = await loginToBackend(backendLoginEmail, backendPassword.trim());
+    if (!result.ok) {
+      Alert.alert('Backend login failed', result.error ?? 'Unknown error');
+      return;
+    }
+    handleSendToOCR();
+  };
+
   return (
     <View style={styles.container}>
+      <Modal visible={showPasswordModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Log in to backend</Text>
+            <Text style={styles.modalEmail}>{backendLoginEmail}</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Password"
+              placeholderTextColor="#999"
+              value={backendPassword}
+              onChangeText={setBackendPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.button, styles.retakeButton]} onPress={() => setShowPasswordModal(false)}>
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.sendButton]} onPress={handleBackendLoginFromModal}>
+                <Text style={styles.buttonText}>Log in & retry OCR</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
       {/* Preview Image */}
       <View style={styles.imageContainer}>
         <Image
@@ -140,6 +203,43 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 2,
+    borderColor: colors.teal,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  modalEmail: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: '#333',
+    color: '#fff',
+    padding: 14,
+    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   imageContainer: {
     flex: 1,
