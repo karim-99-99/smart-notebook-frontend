@@ -107,11 +107,8 @@ export const ScanScreen = () => {
 
   const handleCapture = async () => {
     if (!qrCodeDetected) {
-      Alert.alert(
-        'Scan QR Code First',
-        'Please scan a QR code before taking a photo',
-      );
-      return;
+      // QR code improves OCR accuracy but is not required to take a photo
+      console.log('Capturing without QR code — accuracy hints not available');
     }
 
     if (isCapturing || !cameraRef.current) {
@@ -232,7 +229,7 @@ export const ScanScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity onLongPress={openUrlModal} delayLongPress={600}>
-            <Text style={styles.headerTitle}>Smart Notebook</Text>
+            <Text style={styles.headerTitle}>Letra</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -259,9 +256,9 @@ export const ScanScreen = () => {
       {/* Instructions */}
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionsText}>
-          {!qrCodeDetected
-            ? '1. Scan a QR code first'
-            : '2. Tap the button to take photo'}
+          {qrCodeDetected
+            ? 'QR scanned — Tap to take photo'
+            : 'Tap the button to take a photo'}
         </Text>
       </View>
 
@@ -270,10 +267,10 @@ export const ScanScreen = () => {
         <TouchableOpacity
           style={[
             styles.captureButton,
-            (!qrCodeDetected || isCapturing) && styles.captureButtonDisabled,
+            isCapturing && styles.captureButtonDisabled,
           ]}
           onPress={handleCapture}
-          disabled={!qrCodeDetected || isCapturing}>
+          disabled={isCapturing}>
           {isCapturing ? (
             <ActivityIndicator size="large" color="#fff" />
           ) : (

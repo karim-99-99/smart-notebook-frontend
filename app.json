@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Smart Notebook",
-    "slug": "smartnotebook",
+    "name": "Letra Smart Notebook",
+    "slug": "letra-smart-notebook",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,14 +9,14 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#5B2A8F"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kareem666.smartnotebook",
+      "bundleIdentifier": "com.karim.letranotebook",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Smart Notebook needs camera access to scan your notebook pages",
@@ -32,7 +32,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.kareem666.smartnotebook",
+      "package": "com.karim.letranotebook",
       "runtimeVersion": "1.0.0"
     },
     "web": {
@@ -40,12 +40,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "58e6d06d-73f7-4fb9-9b89-db773cece8cb"
+        "projectId": "48e7acc8-39d7-4220-a99d-2b855b92e266"
       }
     },
-    "owner": "kareem999",
-    "updates": {
-      "url": "https://u.expo.dev/58e6d06d-73f7-4fb9-9b89-db773cece8cb"
-    }
+    "owner": "kareem999"
   }
 }

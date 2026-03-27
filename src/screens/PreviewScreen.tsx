@@ -16,7 +16,6 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import type {RootStackParamList} from '../navigation/types';
-import RNFS from 'react-native-fs';
 import {uploadImageForOCR, loginBackend} from '../services/api';
 import {getCurrentUser} from '../lib/supabase';
 import type {NotebookQRData} from '../utils/qrCodeParser';
@@ -65,19 +64,9 @@ export const PreviewScreen = () => {
       setTimeout(() => setOcrStep('Reading Arabic / English text...'), 10000),
       setTimeout(() => setOcrStep('Almost there...'), 25000),
     ];
-    // #region agent log
-    const DEBUG_LOG_PATH = `${RNFS.DocumentDirectoryPath}/debug.log`;
-    const logLine = JSON.stringify({location:'PreviewScreen.tsx:33',message:'handleSendToOCR entry',data:{photoPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'}) + '\n';
-    RNFS.appendFile(DEBUG_LOG_PATH, logLine, 'utf8').catch(() => {});
-    // #endregion
-
     try {
       // Pass QR data to OCR for auto-configuration
       const result = await uploadImageForOCR(photoPath, qrData);
-      // #region agent log
-      const logLine2 = JSON.stringify({location:'PreviewScreen.tsx:41',message:'uploadImageForOCR returned',data:{success:result.success,hasData:!!result.data,error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'}) + '\n';
-      RNFS.appendFile(DEBUG_LOG_PATH, logLine2, 'utf8').catch(() => {});
-      // #endregion
 
       if (result.success && result.data) {
         console.log('✅ OCR successful:', result.data);
@@ -94,10 +83,6 @@ export const PreviewScreen = () => {
       } else {
         console.error('❌ OCR failed:', result.error);
         trackError('ocr', result.error || 'OCR failed', undefined, {});
-        // #region agent log
-        const logLine3 = JSON.stringify({location:'PreviewScreen.tsx:53',message:'OCR failed - showing alert',data:{error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'}) + '\n';
-        RNFS.appendFile(DEBUG_LOG_PATH, logLine3, 'utf8').catch(() => {});
-        // #endregion
         const hint = 'Check connection to backend or log in (log out and log in again if needed).';
         const isAuthError = (result.error || '').toLowerCase().includes('logged in to backend') || (result.error || '').toLowerCase().includes('not logged in');
         const openPasswordModal = async () => {
@@ -124,10 +109,6 @@ export const PreviewScreen = () => {
     } catch (error) {
       console.error('❌ Upload error:', error);
       trackError('ocr', error instanceof Error ? error.message : String(error), undefined, {});
-      // #region agent log
-      const logLine4 = JSON.stringify({location:'PreviewScreen.tsx:63',message:'Catch block in handleSendToOCR',data:{errorType:error?.constructor?.name,errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'}) + '\n';
-      RNFS.appendFile(DEBUG_LOG_PATH, logLine4, 'utf8').catch(() => {});
-      // #endregion
       Alert.alert(
         'Something went wrong',
         'Check connection to backend or log in (log out and log in again if needed). Return to the scan screen and try again.',

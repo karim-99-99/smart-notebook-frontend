@@ -5,10 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Platform} from 'react-native';
 import {getNoteById} from './database';
 
-// ngrok: start backend then run "ngrok http 8000" (or "ngrok http 8002" if backend uses 8002). Copy the https URL here.
-// Or use local WiFi IP: http://YOUR_IP:8000 or http://YOUR_IP:8002
-const API_BASE_URL = 'https://set-promise-expects-causing.trycloudflare.com';
-const OCR_SERVICE_URL = 'https://set-promise-expects-causing.trycloudflare.com';
+const API_BASE_URL = 'https://letra-backend.onrender.com';
+const OCR_SERVICE_URL = 'https://letra-ocr.onrender.com'; // Update after Phase C if service name differs
 
 const BACKEND_AUTH_TOKEN_KEY = 'backend_auth_token';
 
@@ -38,15 +36,6 @@ const parseJwtExpiry = (token: string): number | null => {
   }
 };
 
-// #region agent log
-const DEBUG_LOG_PATH = `${RNFS.DocumentDirectoryPath}/debug.log`;
-console.log('🔍 Debug log path:', DEBUG_LOG_PATH);
-const writeDebugLog = (logData: any) => {
-  const logLine = JSON.stringify({...logData, timestamp: Date.now()}) + '\n';
-  RNFS.appendFile(DEBUG_LOG_PATH, logLine, 'utf8').catch(() => {});
-};
-// #endregion
-
 /** Get token for backend API. Returns null (and removes stored token) when expired. */
 export const getBackendAuthToken = async (): Promise<string | null> => {
   const token = await AsyncStorage.getItem(BACKEND_AUTH_TOKEN_KEY);
@@ -69,14 +58,11 @@ export const setBackendAuthToken = async (token: string | null): Promise<void> =
  * Log in to the backend with email/password. Stores the token so OCR and other API calls work.
  * Call this after Supabase login so "Send to OCR" uses the same user.
  */
-// Ngrok free tier: send this so the tunnel forwards the request instead of showing interstitial
-const NGROK_HEADERS: Record<string, string> = API_BASE_URL.includes('ngrok') ? { 'ngrok-skip-browser-warning': 'true' } : {};
-
 export const loginBackend = async (email: string, password: string): Promise<{error?: string}> => {
   try {
     const res = await fetch(`${API_BASE_URL}/api/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
@@ -103,7 +89,7 @@ export const registerBackend = async (
   try {
     const res = await fetch(`${API_BASE_URL}/api/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     if (res.ok) return {};
@@ -125,7 +111,7 @@ export const syncBackendPassword = async (email: string, password: string): Prom
   try {
     const res = await fetch(`${API_BASE_URL}/api/sync-password`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     if (res.ok) return {};
@@ -149,9 +135,6 @@ export const uploadImageForOCR = async (
 ): Promise<UploadResponse> => {
   const fetchUrl = `${API_BASE_URL}/api/notes/ocr`;
   const token = await getBackendAuthToken();
-  // #region agent log
-  writeDebugLog({location:'api.ts:uploadImageForOCR',message:'uploadImageForOCR entry',data:{imageUri,fetchUrl,hasToken:!!token},sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
-  // #endregion
 
   if (!token) {
     return {
@@ -176,10 +159,6 @@ export const uploadImageForOCR = async (
       formData.append('page_number', String(qrData.page_number));
       console.log('📋 QR Data passed to OCR:', qrData);
     }
-    // #region agent log
-    writeDebugLog({location:'api.ts:FormData',message:'FormData created',data:{imageUri,hasFormData:!!formData},sessionId:'debug-session',runId:'run1',hypothesisId:'D'});
-    // #endregion
-
     const headers: Record<string, string> = {
       Accept: 'application/json',
     };
@@ -191,10 +170,6 @@ export const uploadImageForOCR = async (
       headers,
       body: formData,
     };
-    // #region agent log
-    writeDebugLog({location:'api.ts:Before fetch',message:'Before fetch call',data:{url:fetchUrl,method:fetchOptions.method,hasBody:!!fetchOptions.body},sessionId:'debug-session',runId:'run1',hypothesisId:'B'});
-    // #endregion
-
     const TIMEOUT_MS = 60000;
     const fetchStartTime = Date.now();
     let response: Response;
@@ -211,19 +186,15 @@ export const uploadImageForOCR = async (
       if (timeoutId) clearTimeout(timeoutId);
       const fetchDuration = Date.now() - fetchStartTime;
       console.error('❌ Fetch exception:', fetchError);
-      writeDebugLog({location:'api.ts:Fetch exception',message:'Fetch exception caught',data:{errorType:fetchError?.constructor?.name,errorMessage:fetchError instanceof Error ? fetchError.message : String(fetchError),fetchDuration,url:fetchUrl},sessionId:'debug-session',runId:'run1',hypothesisId:'C'});
       const msg = fetchError instanceof Error ? fetchError.message : String(fetchError);
       throw new Error(`Check connection to backend or log in. ${msg}`);
     }
     const fetchDuration = Date.now() - fetchStartTime;
-    writeDebugLog({location:'api.ts:After fetch',message:'After fetch call',data:{status:response.status,ok:response.ok,fetchDuration},sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
-
     console.log('📥 Response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ API Error:', errorText);
-      writeDebugLog({location:'api.ts:HTTP error',message:'HTTP error response',data:{status:response.status,errorText},sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
       if (response.status === 401) {
         await setBackendAuthToken(null);
         throw new Error('Check connection to backend or log in. Session expired or not authenticated — log out and log in again to use OCR.');
@@ -248,8 +219,6 @@ export const uploadImageForOCR = async (
       created_at: raw.created_at,
     };
     console.log('✅ OCR Result:', data);
-    writeDebugLog({location:'api.ts:Success',message:'OCR result received',data:{hasData:!!data},sessionId:'debug-session',runId:'run1',hypothesisId:'A'});
-
     return { success: true, data };
   } catch (error) {
     console.error('❌ Upload failed:', error);
@@ -259,7 +228,6 @@ export const uploadImageForOCR = async (
       url: fetchUrl,
     };
     console.error('❌ Error details:', JSON.stringify(errorDetails, null, 2));
-    writeDebugLog({location:'api.ts:Catch',message:'Catch block - error details',data:errorDetails,sessionId:'debug-session',runId:'run1',hypothesisId:'F'});
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Upload failed',
