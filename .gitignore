@@ -52,6 +52,9 @@ ios/fastlane/test_output
 # Temporary files created by Metro
 .metro-health-check*
 
+# Expo local state
+.expo/
+
 # testing
 /coverage
 
